@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "uraha-effiloop-mini"         # 半角英数とハイフンのみ。両端は英数字で終わる
+version = "0.1.0"
+description = "FEPセルフケア最小ループ"
+authors = ["uraha <noreply@example.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+# いまのローカルが Python 3.9.6 なので 3.9系を許可しておく
+python = "^3.9"
+streamlit = "*"
+pandas = "*"
+altair = "<5"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
