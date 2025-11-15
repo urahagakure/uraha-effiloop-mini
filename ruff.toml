@@ -1,6 +1,7 @@
-line-length = 100                           # 要求: 1行の長さを緩めに
-target-version = "py39"                     # 要求: コード互換（ローカル3.9/CI3.12でもOK）
+# ruff.toml  ← "tool." を付けない
+line-length = 120          # 長文UI文のため 120 に拡張（お好みで）
+target-version = "py39"
 
 [lint]
-select = ["E", "F", "I"]                    # 要求: まずはエラー/未定義/インポート整形のみ
-ignore = []                                 # 要求: 例外なし（必要になったら追加）
+select = ["E", "F", "I"]   # E: pycodestyle, F: pyflakes, I: import整形
+ignore = []

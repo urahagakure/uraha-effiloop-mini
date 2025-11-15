@@ -1,37 +1,40 @@
-name: ci                                     # 要求: チェック名の先頭（"ci / ..." になる）
+# .github/workflows/ci.yml
+name: ci
 
 on:
   push:
-    branches: [ main ]                       # 要求: mainへのpush
-  pull_request:                              # 要求: PRでも実行
+    branches: [ main ]
+  pull_request:
 
 jobs:
-  ruff:                                      # 要求: チェック名 "ci / ruff"
-    runs-on: ubuntu-latest                   # 要求: LinuxでOK
-    steps:
-      - name: Checkout                       # 要求: コード取得
-        uses: actions/checkout@v4
-      - name: Setup Python 3.12              # 要求: Python 3.12
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: 'pip'                       # 要求: pip キャッシュ有効
-      - name: Install ruff                   # 要求: 依存導入（高速）
-        run: pip install ruff
-      - name: Ruff check                     # 要求: Lint実行
-        run: ruff check .
-
-  mypy:                                      # 要求: チェック名 "ci / mypy"
+  ruff:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Setup Python 3.12
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"      # ランナー上の実行系（mypyのターゲットはmypy.iniで3.9に）
+      - name: Install Poetry
+        uses: abatilo/actions-poetry@v3
+      - name: Install deps (dev)
+        run: poetry install --with dev --no-interaction --no-ansi
+      - name: Ruff check
+        run: poetry run ruff check .
+
+  mypy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          cache: 'pip'
-      - name: Install mypy                   # 要求: 依存導入（最小）
-        run: pip install mypy
-      - name: Type check (mypy)              # 要求: 型チェックは app/ 配下
-        run: mypy app
+      - name: Install Poetry
+        uses: abatilo/actions-poetry@v3
+      - name: Install deps (dev)
+        run: poetry install --with dev --no-interaction --no-ansi
+      - name: Type check
+        run: poetry run mypy app
