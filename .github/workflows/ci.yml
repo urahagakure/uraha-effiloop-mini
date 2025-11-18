@@ -1,40 +1,54 @@
-# .github/workflows/ci.yml
-name: ci
+name: ci  # パイプライン名
 
-on:
-  push:
+on:       # 実行トリガ
+  push:   # main に push で実行
     branches: [ main ]
-  pull_request:
+  pull_request:  # PR でも実行
 
 jobs:
-  ruff:
+  ruff:                 # Lint ジョブ
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout  # コード取得
         uses: actions/checkout@v4
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"      # ランナー上の実行系（mypyのターゲットはmypy.iniで3.9に）
-      - name: Install Poetry
-        uses: abatilo/actions-poetry@v3
-      - name: Install deps (dev)
-        run: poetry install --with dev --no-interaction --no-ansi
-      - name: Ruff check
-        run: poetry run ruff check .
 
-  mypy:
+      - name: Setup Python 3.9  # ランナーの Python をローカルに合わせる
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      - name: Install Poetry    # Poetry をセットアップ
+        uses: abatilo/actions-poetry@v3
+
+      - name: Check lock drift  # ロックずれを早期検出（ズレていたら失敗させる）
+        run: poetry lock --check
+
+      - name: Install deps (dev)  # 開発依存込みでインストール（ruff/mypy等）
+        run: poetry install --with dev --no-interaction --no-ansi
+
+      - name: Ruff check        # Lint 実行
+        run: poetry run ruff check .
+        # 失敗時に自動整形したい場合： poetry run ruff check . --fix
+
+  mypy:                # 型チェック ジョブ
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Setup Python
+
+      - name: Setup Python 3.9   # ← ここも 3.9 に統一（スクショでは3.12）
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.9"
+
       - name: Install Poetry
         uses: abatilo/actions-poetry@v3
+
+      - name: Check lock drift
+        run: poetry lock --check
+
       - name: Install deps (dev)
         run: poetry install --with dev --no-interaction --no-ansi
-      - name: Type check
+
+      - name: Type check         # app/ 配下のみ型チェック
         run: poetry run mypy app

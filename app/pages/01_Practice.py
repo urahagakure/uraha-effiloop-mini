@@ -1,97 +1,106 @@
-import time
-from datetime import datetime, timedelta
-import streamlit as st
+# app/pages/01_Practice.py
+from __future__ import annotations  # 将来アノテーション：前方参照を簡単に
 
-st.set_page_config(page_title="Practice - uraha EffiLoop mini", page_icon="🧭", layout="centered")
-st.title("Practice")
-st.caption("EffiLoopミニ（10–20秒）＋ BLS（Start / Stop / Ground）")
+import time  # 1秒待って再描画するため
+from datetime import datetime  # 時刻の取得に使う
 
-ss = st.session_state
-ss.setdefault("logs", [])
-ss.setdefault("effi_running", False)
-ss.setdefault("effi_start_time", None)
-ss.setdefault("effi_duration_sec", 15)
-ss.setdefault("effi_target", "")
-ss.setdefault("effi_note", "")
-ss.setdefault("bls_state", "idle")  # idle/running
+import streamlit as st  # Streamlit 本体
+from config import LogRow, safe_rerun  # 仕様型と安全な再描画
 
-st.subheader("BLS｜Start / Stop / Ground")
-col1, col2, col3 = st.columns(3)
+# -------------------------
+# 画面の基本設定・見出し
+# -------------------------
+st.set_page_config(
+    page_title="Practice - uraha EffiLoop mini",  # タイトル
+    page_icon="✅",  # アイコン
+    layout="centered",  # レイアウト
+)
+st.title("Practice")  # 見出し
+st.caption("EffiLoopミニ（10〜20秒） + BLS（Start/Stop/Ground）")  # 説明
+
+# -------------------------
+# 状態の初期化（無ければ作る）
+# -------------------------
+if "logs" not in st.session_state:  # ログの配列
+    st.session_state["logs"] = []
+if "effi_running" not in st.session_state:  # 実行中フラグ
+    st.session_state["effi_running"] = False
+if "effi_start_time" not in st.session_state:  # 開始時刻
+    st.session_state["effi_start_time"] = None
+
+# 既存値をデフォルトに読む（あっても上書きしない）
+target_default = st.session_state.get("effi_target", "")
+note_default = st.session_state.get("effi_note", "")
+dur_default = int(st.session_state.get("effi_duration_sec", 10))
+
+# -------------------------
+# 入力ウィジェット（ウィジェット→状態の一方向に統一）
+# ※ ここで session_state へ「手で代入しない」
+# -------------------------
+target = st.text_input(
+    "ターゲット（瞬間で行う例：押す/見る/一歩）",  # ラベル
+    value=target_default,  # 既存値
+    key="effi_target",  # 状態キー
+)
+sec = st.slider(
+    "ループ長（秒）",  # ラベル
+    10,
+    20,
+    dur_default,
+    step=1,  # 範囲と初期値
+    key="effi_duration_sec",  # 状態キー（これが真実）
+)
+note = st.text_input(
+    "メモ（任意）",  # ラベル
+    value=note_default,  # 既存値
+    key="effi_note",  # 状態キー
+)
+# --- ここは入力ウィジェット群のすぐ下に追加 --------------------------
+progress_slot = st.empty()  # 仕様：進捗バーの置き場を一つ確保（毎リランで再生成OK）
+# -------------------------
+# ボタン（Start / Stop）
+# -------------------------
+col1, col2 = st.columns(2)
 with col1:
-    if st.button("Start"):
-        ss["bls_state"] = "running"
+    if st.button("Start", disabled=st.session_state["effi_running"]):  # Start
+        st.session_state["effi_start_time"] = datetime.now()  # 開始時刻
+        st.session_state["effi_running"] = True  # フラグON
+        safe_rerun()  # 即時再描画
+
 with col2:
-    if st.button("Stop"):
-        ss["bls_state"] = "idle"
-with col3:
-    if st.button("Ground（呼気8秒）"):
-        st.write("吐く：8秒（視線はやわらかく）")
-        bar = st.progress(0)
-        for i in range(80):
-            time.sleep(0.1)
-            bar.progress(i + 1)
-        st.success("OK。呼吸はそのまま自然に。")
+    if st.button("Stop", disabled=not st.session_state["effi_running"]):  # Stop
+        end = datetime.now()  # 終了時刻
+        start = st.session_state.get("effi_start_time")  # 開始時刻
+        dur = int((end - start).total_seconds()) if start else 0  # 経過秒
+        st.session_state["logs"].append(  # ログ追加
+            LogRow(
+                start=start.isoformat() if start else "",
+                end=end.isoformat(),
+                duration_sec=dur,
+                target=st.session_state.get("effi_target", ""),
+                note=st.session_state.get("effi_note", ""),
+            )
+        )
+        st.session_state["effi_running"] = False  # フラグOFF
+        st.success("Complete! ログに記録しました。")  # 完了表示
+        safe_rerun()  # 即時再描画
 
-if ss["bls_state"] == "running":
-    st.info("BLS: 吸う4／吐く8を目安に。評価は保留、感覚だけ観測。")
+# -------------------------
+# ------------------ 実行中の描画（ハートビート） ------------------
+if st.session_state.get("effi_running", False):  # 仕様：実行中のみ進捗更新
+    start = st.session_state.get("effi_start_time")  # 仕様：開始時刻を取得
+    dur = int(st.session_state.get("effi_duration_sec", 10))  # 仕様：目標の総秒数
+    elapsed = int((datetime.now() - start).total_seconds()) if start else 0  # 仕様：経過秒
+    remain = max(dur - elapsed, 0)  # 仕様：負にならない残り秒
+    pct = int(min(elapsed * 100 // max(dur, 1), 100))  # 仕様：0〜100%に正規化
 
-st.markdown("---")
-st.subheader("EffiLoopミニ｜10–20秒の最小ループ")
-ss["effi_target"] = st.text_input("ターゲット（動詞で1行）例：押す／見る／一歩", value=ss.get("effi_target",""))
-ss["effi_duration_sec"] = st.slider("ループ長（秒）", 10, 20, ss.get("effi_duration_sec",15), 1)
-ss["effi_note"] = st.text_input("メモ（任意 / 体感の一言）", value=ss.get("effi_note",""))
+    progress_slot.progress(pct)  # 仕様：プログレスバーを現在率で描画
+    st.info(f"残り：{remain} 秒")  # 仕様：テキストでも残りを表示
 
-c1, c2 = st.columns(2)
-with c1:
-    start_clicked = st.button("▶ Start")
-with c2:
-    stop_clicked = st.button("■ Stop")
-
-now = datetime.now()
-
-if start_clicked:
-    if not ss["effi_target"].strip():
-        st.warning("ターゲットを入力してください（例：押す／見る／一歩）")
-    else:
-        ss["effi_running"] = True
-        ss["effi_start_time"] = now
-        ss["effi_duration"] = timedelta(seconds=int(ss["effi_duration_sec"]))
-
-if stop_clicked and ss["effi_running"]:
-    end = now
-    ss["effi_running"] = False
-    ss["logs"].append({
-        "start": ss["effi_start_time"].isoformat() if ss["effi_start_time"] else "",
-        "end": end.isoformat(),
-        "duration_sec": (end - ss["effi_start_time"]).total_seconds() if ss["effi_start_time"] else 0,
-        "target": ss["effi_target"],
-        "note": ss["effi_note"],
-        "result": "stopped",
-    })
-    ss["effi_note"] = ""
-
-if ss["effi_running"] and ss["effi_start_time"]:
-    elapsed = now - ss["effi_start_time"]
-    remain = ss["effi_duration"] - elapsed
-    remain_sec = max(0, int(remain.total_seconds()))
-    st.metric("残り", f"{remain_sec} 秒")
-    st.progress(min(1.0, elapsed / ss["effi_duration"]))
-    if remain.total_seconds() <= 0:
-        end = now
-        ss["effi_running"] = False
-        ss["logs"].append({
-            "start": ss["effi_start_time"].isoformat(),
-            "end": end.isoformat(),
-            "duration_sec": (end - ss["effi_start_time"]).total_seconds(),
-            "target": ss["effi_target"],
-            "note": ss["effi_note"],
-            "result": "complete",
-        })
-        ss["effi_note"] = ""
-        st.balloons()
-        st.success("Complete! ログに記録しました。")
-    else:
-        try:
-            st.rerun()
-        except AttributeError:
-            st.experimental_rerun()
+    if remain > 0:  # 仕様：まだ残っていれば1秒待って再描画
+        time.sleep(1)  # 仕様：1秒刻み
+        safe_rerun()  # 仕様：即時再描画（新旧APIを吸収）
+    else:  # 仕様：ちょうど完了
+        st.session_state["effi_running"] = False  # 仕様：実行フラグOFF
+        progress_slot.empty()  # 仕様：バーを消す
+        st.success("Complete! ログに記録しました。")  # 仕様：完了メッセージ
