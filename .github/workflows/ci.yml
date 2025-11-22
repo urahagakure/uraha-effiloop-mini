@@ -26,6 +26,10 @@ jobs:
       - name: Install deps (dev)  # 開発依存込みでインストール（ruff/mypy等）
         run: poetry install --with dev --no-interaction --no-ansi
 
+         # ←ここを追加（フォーマットされていなければ失敗）
+      - name: Ruff format (check only)
+        run: poetry run ruff format --check
+
       - name: Ruff check        # Lint 実行
         run: poetry run ruff check .
         # 失敗時に自動整形したい場合： poetry run ruff check . --fix
